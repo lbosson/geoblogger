@@ -1,0 +1,32 @@
+{% if distance or max_altitude or min_altitude or ascent or descent %}
+  <h3>Stats</h3>
+  <ul>
+    <li>Distance: {{ distance }} km ({{ distance_m }} miles)</li>
+    <li>Max Elevation: {{ max_altitude }} m ({{ max_altitude_f }} feet)</li>
+    <li>Min Elevation: {{ min_altitude }} m ({{ min_altitude_f }} feet)</li>
+    <li>Ascent: {{ ascent }} m ({{ ascent_f }} feet)</li>
+    <li>Descent: {{ descent }} m ({{ descent_f }} feet)</li>
+  </ul>
+  <br/>
+{% endif %}
+
+{% if description %}
+  <h3>Description</h3>
+  {{ description|safe }}<br/>
+  <br/>
+{% endif %}
+
+{% if photos %}
+  <h3>Photos</h3>
+  <section id="photos">
+    {% for photo in photos %}
+      <img width="200px" height="auto" src="{{ photo }}"/>
+    {% endfor %}
+  </section>
+  <div class="clear"></div>
+  <br/>
+{% endif %}
+
+{% if blog_link %}
+<a href="{{ blog_link }}">{{ blog_link }}</a>
+{% endif %}

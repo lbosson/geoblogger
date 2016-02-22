@@ -1,0 +1,115 @@
+<link rel="stylesheet" href="{{ config.s3_website_prefix }}/css/magnific-popup.css">
+
+<style>
+  #container img {
+    display: block;
+    width: 150px;
+    height: auto;
+    padding: 0;
+    margin: 0;
+    border: 0;
+  }
+
+  #container {
+    position: relative;
+    min-height: 500px;
+  }
+
+  #container li {
+    list-style-type: none;
+  }
+
+  .off {
+    display: None;
+    visibility: hidden;
+  }
+
+  .caption {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    color: white;
+    margin: 10px;
+    text-align: center;
+
+    visibility: hidden;
+    opacity: 0;
+
+    -webkit-transition: visibility opacity 0.2s;
+  }
+
+  .img_wrap:hover .caption {
+    visibility: visible;
+    opacity: 1;
+  }
+</style>
+<ul id="container">
+  {% for link, photo, caption in photos %}
+    <li class="img_wrap off">
+      <a title="{{ caption or "" }}" href="{{ link }}"><img src="{{ photo }}"/></a>
+
+      <p class="caption">{{ caption or "" }}</p>
+    </li>
+  {% endfor %}
+</ul>
+
+{% if include_jquery %}
+  <script src="{{ config.s3_website_prefix }}/js/jquery.min.js"></script>
+{% endif %}
+
+<!-- Include the imagesLoaded plug-in -->
+<script src="{{ config.s3_website_prefix }}/js/imagesloaded.pkgd.min.js"></script>
+
+<!-- include magnific popup -->
+<script src="{{ config.s3_website_prefix }}/js/jquery.magnific-popup.min.js"></script>
+
+<!-- Include the plug-in -->
+<script src="{{ config.s3_website_prefix }}/js/wookmark.js"></script>
+
+<!-- Once the page is loaded, initalize the plug-in. -->
+<script type="text/javascript">
+  (function ($) {
+    // Instantiate wookmark after all images have been loaded
+    var wookmark,
+        container = '#container',
+        $container = $(container),
+        $window = $(window),
+        $document = $(document);
+
+    $('li.off', $container).slice(0, 100).removeClass('off');
+
+    $('#container').magnificPopup({
+      delegate: 'li:not(.inactive) a',
+      type: 'image',
+      gallery: {
+        enabled: true
+      }
+    });
+
+    wookmark = new Wookmark(container, {
+      offset: 0,
+      itemWidth: 150
+    });
+
+    function onScroll() {
+      // Check if we're within 100 pixels of the bottom edge of the broser window.
+      var winHeight = window.innerHeight ? window.innerHeight : $window.height(), // iphone fix
+          closeToBottom = ($window.scrollTop() + winHeight > $document.height() - 100);
+
+      if (closeToBottom) {
+        var $items = $('li.off', $container);
+        $items.slice(0, 25).removeClass('off');
+        wookmark.updateOptions();
+      }
+    }
+
+    $container.imagesLoaded()
+        .progress(function (instance, image) {
+          wookmark.updateOptions();
+        });
+
+    // Capture scroll event.
+    $window.bind('scroll.wookmark', onScroll);
+  })(jQuery);
+</script>

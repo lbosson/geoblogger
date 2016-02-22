@@ -1,0 +1,175 @@
+<link rel="stylesheet" href="{{ config.s3_website_prefix }}/css/magnific-popup.css">
+
+<style>
+  #photos li {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+    border: 0;
+  }
+
+  #photos img {
+    display: block;
+    width: 100%;
+    height: auto;
+    padding: 0;
+    margin: 0;
+    border: 0;
+  }
+
+  #photos {
+    position: relative;
+  }
+
+  .caption {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    color: white;
+    margin: 10px;
+    text-align: center;
+
+    visibility: hidden;
+    opacity: 0;
+
+    -webkit-transition: visibility opacity 0.2s;
+  }
+
+  .img_wrap:hover .caption {
+    visibility: visible;
+    opacity: 1;
+  }
+</style>
+
+{% if photos %}
+  <img style="{% if config.blog_hide_featured_image %}display: none;{% endif %} width: 100%; padding: 0;" src="{{ featured_photo }}"/>
+{% endif %}
+
+{% if distance or max_altitude or min_altitude or ascent or descent %}
+  <h3 id="stats">Stats</h3>
+  <ul>
+    <li>Distance: {{ distance }} km ({{ distance_m }} miles)</li>
+    <li>Max Elevation: {{ max_altitude }} m ({{ max_altitude_f }} feet)</li>
+    <li>Min Elevation: {{ min_altitude }} m ({{ min_altitude_f }} feet)</li>
+    <li>Ascent: {{ ascent }} m ({{ ascent_f }} feet)</li>
+    <li>Descent: {{ descent }} m ({{ descent_f }} feet)</li>
+  </ul>
+  <br/>
+{% endif %}
+
+{% if description %}
+  <h3 id="description">Description</h3>
+  {{ description|safe }}<br/>
+  <br/>
+{% endif %}
+
+<!--more-->
+
+{% if photos %}
+  <h3>Photos</h3>
+  <ul id="photos">
+    {% for link, photo, caption in photos %}
+      <li class="img_wrap">
+        <a title="{{ caption or "" }}" href="{{ link }}"><img src="{{ photo }}"/></a>
+
+        <p class="caption">{{ caption or "" }}</p>
+      </li>
+    {% endfor %}
+  </ul>
+  <div class="clear"></div>
+  <br/>
+{% endif %}
+
+{% if videos %}
+  <h3 id="videos">Videos</h3>
+  <section id="videos">
+    {% for video in videos %}
+      <video width="100%" height="auto" controls>
+        <source src="{{ video }}" type="video/mp4">
+        Your browser does not support the video tag.
+      </video>
+    {% endfor %}
+  </section>
+  <br/>
+{% endif %}
+
+{% if map_share_link %}
+  <h3 id="map">Map</h3>
+  <div style="text-align: center;">
+    <iframe height="500" src="{{ map_share_link }}" width="100%"></iframe>
+  </div>
+{% endif %}
+
+{% if map_download_link %}
+  <a href="{{ map_download_link }}">Download GPX</a><br/>
+{% endif %}
+
+<br/>
+
+{% if chart_share_link %}
+  <h3 id="elevation_chart">Elevation Chart</h3>
+  <div style="text-align: center;">
+    <iframe height="420" src="{{ chart_share_link }}" width="100%"></iframe>
+  </div>
+  <br/>
+{% endif %}
+
+{% if next_blog_link %}
+  <div style="float: left;"><a href="{{ next_blog_link[0] }}">Newer - {{ next_blog_link[1] }}</a></div>
+{% endif %}
+
+{% if previous_blog_link %}
+  <div style="float: right;"><a href="{{ previous_blog_link[0] }}">Older - {{ previous_blog_link[1] }}</a></div>
+{% endif %}
+
+<br/>
+
+<!-- Make sure jquery is included -->
+<script src="{{ config.s3_website_prefix }}/js/jquery.min.js"></script>
+
+<!-- Include the imagesLoaded plug-in -->
+<script src="{{ config.s3_website_prefix }}/js/imagesloaded.pkgd.min.js"></script>
+
+<!-- include magnific popup -->
+<script src="{{ config.s3_website_prefix }}/js/jquery.magnific-popup.min.js"></script>
+
+<!-- Include the plug-in -->
+<script src="{{ config.s3_website_prefix }}/js/wookmark.js"></script>
+
+<!-- Once the page is loaded, initalize the plug-in. -->
+<script type="text/javascript">
+  (function ($) {
+    function getWindowWidth() {
+      return Math.max(document.documentElement.clientWidth, window.innerWidth || 0)
+    }
+
+    var $photos = $('#photos'),
+        wookmark;
+
+    // Initialize Magnific
+    $photos.magnificPopup({
+      delegate: 'li:not(.inactive) a',
+      type: 'image',
+      gallery: {
+        enabled: true
+      }
+    });
+
+    // Initialize Wookmark
+    wookmark = new Wookmark(photos, {
+      offset: 0,
+      itemWidth: {{ config.image_default_post_display_size }},
+      photos: "$('#photos')",
+      flexibleWidth: function () {
+        // Return a maximum width depending on the viewport
+        return getWindowWidth() < 1024 ? '100%' : '50%';
+      }
+    });
+
+    $photos.imagesLoaded()
+        .progress(function (instance, image) {
+          wookmark.updateOptions();
+        });
+  })(jQuery);
+</script>

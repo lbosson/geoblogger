@@ -1,0 +1,240 @@
+WHAT IS GEOBLOGGER?
+-------------------
+Geoblogger is designed to create and upload blog posts based on geo information combined with media and text. 
+ 
+In more detail geoblogger looks for new or updated geo files, their associated media files then processes and uploads these files to Amazon S3 which is used to host static web content. Using the tracks, waypoints, metadata from the gpx files along with images and videos and their associated IPTC tag information it creates rich formated blog posts complete with statistics, maps, images, elevation charts, videos, description, captions and more. 
+
+Features:
+
+1. Route Statistics
+2. HTML or Text Descriptions
+3. Image Galleries with mosiac support for images of varying size and infinite scroll
+4. HTML5 Video Support
+5. Interactive Google Maps
+6. Interactive Elevation Charts
+7. Combined Map of all tracks and waypoints
+8. Combined Image Gallery of all images
+9. Database to keep track of what's changed easily allowing you to make edits and update blogs
+10. Example Blogger template to get you up and running right away
+
+Limitations:
+
+1. Quite involved setup process
+2. Quite rigid format unless you are comfortable changing Jinja templates and Python code
+
+
+BEFORE YOU START
+----------------
+Expect this setup to take several hours depending on how tech savy you are. Expect to have to read through several pages explaining things like security and internety things. You will have to balance this setup time against the time you will save setting up your own blog, finding solutions for things like mapping, hosting images (of different sizes), displaying photo galleries of thousands of pictures with infinite scroll and just writting blog posts in general which this will all but eliminate.
+ 
+You can expect your time to write a blog post to take the time it takes to transfer your gpx file from your gps, the images from your camera, writing a description and adding captions to photos. No time will be spent on monotonous tasks like uploading images, fighting with layout in shitty webbased editors, copy and pasting image links from a to b, creating maps on a separate web page or uploading videos to youtube. 
+
+
+INSTALLATION
+------------
+1. It is highly recommended that you fork this project from github. It is quite likely that you will eventually will want to at least tweak the templates to your liking at some point. Either way, download and extract the code is step 1.
+
+2. In a terminal window navigate to the geoblogger directory.
+
+3. Create a new virtualenv: `virtualenv ve`
+Note: If you do not have virtualenv you can install it with "pip install virtualenv"
+
+4. Activate the new virtualenv: `. ve/bin/activate`
+
+5. You will need to install libjpeg for jpeg support libraries if you don't have it already. I am not 100% sure about the process on all systems but on Mac OSX and likely unix systems the easiest way to install it is with homebrew (http://brew.sh/). After you have homebrew installed run: `brew install libjpeg` 
+
+5. Install the package: `pip install -r requirements.txt`
+Note: This will install all the requirements to your virtualenv and may take a few minutes.
+
+
+SETUP WEB SERVICES STEPS
+------------------------
+1. AWS Setup
+    1. Signup for Amazon S3
+    
+    This step is pretty straight forward. The goal is to signup for Amazon AWS S3 and get credentials so geoblogger can upload files for you.
+    
+    http://www.bucketexplorer.com/documentation/amazon-s3--how-to-create-a-new-amazon-s3-account.html
+    
+    2. Setup Static Website Hosting
+    
+    I'm not going to lie. This is a bit of a pain even if you know what you are doing. If I try and tell you how to do it enevitably something will go wrong if you don't understand each step. So instead I will point you to Amazons docs so you can get a bit of background. 
+    
+    http://docs.aws.amazon.com/AmazonS3/latest/dev/WebsiteHosting.html
+    
+    Note: use "index.html" and "error.html" for the index and error pages...these will be automatically uploaded for you later. 
+    
+    3. Grant everyone "List" and "View Permissions"
+    
+    This is pretty straight forward. Under "Permissions" in the "Properties" tab for your bucket click "Add more permissions": grantee: everyone, select: list and view permissions.
+    
+    Here's an overview of permissions in S3:
+    http://docs.aws.amazon.com/AmazonS3/latest/dev/s3-access-control.html
+    
+    4. Create bucket policy that allows access to your objects.
+    
+    http://docs.aws.amazon.com/AmazonS3/latest/dev/example-bucket-policies.html
+    
+    Type of Policy: S3 Bucket Policy
+    Principal: *
+    Actions: GetObject
+    
+    http://awspolicygen.s3.amazonaws.com/policygen.html
+    
+    5. Add CORS Configuration so we can list all of your GPX files.
+    
+    Add this CORS Configuration:
+    
+    ```
+    <?xml version="1.0" encoding="UTF-8"?>
+    <CORSConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+        <CORSRule>
+            <AllowedOrigin>*</AllowedOrigin>
+            <AllowedMethod>GET</AllowedMethod>
+            <MaxAgeSeconds>3000</MaxAgeSeconds>
+            <AllowedHeader>*</AllowedHeader>
+        </CORSRule>
+    </CORSConfiguration>
+    ```
+
+    http://docs.aws.amazon.com/AmazonS3/latest/dev/cors.html
+    
+2. Google Developer Setup
+    This is a huge pain in the ass. I could just let you use my keys and you would give my credentials to update your blogger which is the standard way apps interact with users accounts and the point of OAuth but I don't want to have to support anything.
+    
+    1. Create a google account if you somehow don't already have one
+    
+    2. Get OAuth Keys
+    
+    This will require some learning and understanding:
+    https://developers.google.com/blogger/docs/3.0/using#APIKey
+    
+    3. Create Google Maps API Browser Key
+    
+    https://developers.google.com/maps/signup?hl=en
+    
+    Also make sure you accept requests from amazon s3 as that's where the maps API requests will come from. Something like: *.s3-website-us-east-1.amazonaws.com/*. Also doesn't hurt to give permission from your blogger address: geobloggersample.blogspot.com/*.
+    
+3. Create a Blogger Blog at blogger.com
+
+4. Install Blogger Template
+    1. Sign in to Blogger.
+    2. Select your blog.
+    3. In the left menu, click Template.
+    4. In the upper right click backup/restore.
+    5. Click choose file and navigate to the sample template in geoblogger/samples/blogger_templates folder
+
+5. Create the "Gallery" page
+    1. Click Pages in the left menu
+    2. Click Add
+    3. Name it whatever you want
+    4. Click save
+    5. Copy the pageId from the url bar (e.g. pageId='234241234123412')
+    6. Save that ID for your config file
+
+6. Create the "Map" page
+    1. Same as Gallery page above.
+    
+    
+CREATE YOUR BLOG
+----------------
+1. Create a blog folder with one of the two methods "list" or "folder"
+
+Now you will create your first blog post. By either creating a directory for each blog with all the images, videos and the gpx in the top level or 3 folders: 1 for all images, 1 for all videos and 1 for all gpx files prefixed with the blog names.
+
+See the samples directory for examples.
+
+2. Blog names must start with the date in the format YYYY-MM-DD. This is how I keep everything unique and determine what dates to use as the post date. Maybe I can get rid of this in the future.
+
+3. GPX files must contain only one track or one waypoint. This sounds dumb because it is. It's just much easier to deal with when creating the combined interactive map. So 1 blog post either has 1 track or 1 waypoint. Naming it the same as the blog title doesn't hurt either. 
+
+4. The description of the track or waypoint in the GPX files is 
+what is used for the description on the blog. 
+ 
+5. Images and Videos are ordered by their filenames. Most of the time your camera names things accordingly. If you use lightroom or something try having it output the files with the date/time as the prefix.
+
+6. Create a config file starting with sample_config.cfg
+
+Take your time going through this. The comments will tell you what you need to change.
+
+
+GO FOR IT
+---------
+1. Open a terminal window and navigate to the geoblogger directory
+
+2. Run: `. ve/bin/activate`
+To activate the virtualenv with all our dependencies.
+
+3. Run: `python scripts/geobloggerapp -c path/to/your/config.cfg --install`
+Run this only once...this uploads some css, js and html files to your s3 bucket.
+
+4. Run: `python scripts/geobloggerapp -c path/to/your/config.cfg`
+
+
+NEXT STEPS
+----------
+1. Setup Homepage Map
+
+Click the edit icon and paste this in replacing <> your info:
+
+```
+<iframe height="360px" width="100%" src="http://<yourbucket>.s3-website-us-east-1.amazonaws.com/maps/interactivemaplight.html"></iframe>
+<br/>
+<br/>
+<a href="<yoursite>.blogspot.com/p/map.html">Map</a>
+```
+
+2. Setup Homepage Gallery
+
+Click the edit icon and paste this in replacing <> with your info:
+
+```
+<style>
+::-webkit-scrollbar
+{
+  width: 12px;  /* for vertical scrollbars */
+  height: 12px; /* for horizontal scrollbars */
+}
+
+::-webkit-scrollbar-track
+{
+  background: rgba(0, 0, 0, 0.1);
+}
+
+::-webkit-scrollbar-thumb
+{
+  background: rgba(0, 0, 0, 0.5);
+}
+</style>
+<iframe height="360px" width="100%" style="border: 0;" src="http://<yourbucket>.s3-website-us-east-1.amazonaws.com/gallery.html"></iframe>
+<br/>
+<br/>
+<a href="<yourblog>.blogspot.com/p/gallery.html">Gallery</a>
+```
+
+
+MY TODO's
+---------
+Support deleting of entire blogposts and resources
+Post code on github
+Search code for magic values and move to config
+Review logging
+Review prompts and prints
+
+
+FUTURE ENHANCEMENTS
+-------------------
+Support for multiple tracks and waypoints per GPX
+Support leafletjs
+Support template overriding
+Support other naming conventions get blog date from tracks(?)
+
+
+ADVANCED
+--------
+* Feel free to fork the code or simply change things. Easiest place to start is with the templates in geoblogger/templates. Here you can change how the blog posts look, how the maps look and how the gallery looks. 
+
+
+TIPS
+----
+1. Creating Waypoint/Track GPX Files - Try using Garmin Basecamp...it's free. Also you don't even need a GPS you can create a route by drawing on the map, then convert it to a track and then export it as a GPX. 

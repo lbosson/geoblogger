@@ -1,0 +1,167 @@
+#!/usr/bin/env python
+import argparse
+import config
+import logging
+import logging.handlers
+import sys
+import os
+import tempfile
+import jinja2
+import autoblogger_app
+import folderbackup_app
+import imagegallery_app
+import interactivemap_app
+import geoblogger.configuration
+import geoblogger.s3_manager
+import input_helpers
+
+
+def parse_config(args):
+    if not os.path.exists(args.config_path):
+        print "Config File Not Found!"
+        exit(-1)
+
+    f = file(args.config_path)
+    cfg = config.Config(f)
+    cfg.addMapping("config_path", args.config_path, None)
+    cfg.addNamespace(logging)
+    msg = geoblogger.configuration.validate_config(cfg)
+    if msg:
+        print msg
+        exit(-2)
+    return cfg
+
+
+def setup_logging(cfg):
+    logger = logging.getLogger()
+    logger.setLevel(cfg.log_level)
+
+    logging.getLogger("boto").setLevel(logging.ERROR)
+
+    log_formatter = logging.Formatter(cfg.log_fmt, cfg.log_datefmt)
+
+    log_dir = cfg.log_dir or os.path.join(tempfile.gettempdir(), "geobloggerapp_logs")
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+
+    print "Logging to: %s" % log_dir
+
+    log_handler = logging.handlers.TimedRotatingFileHandler(
+        os.path.join(log_dir, "app"),
+        backupCount=30 * 24
+    )
+    log_handler.setFormatter(log_formatter)
+    logger.addHandler(log_handler)
+
+    if cfg.log_to_screen:
+        logger.addHandler(logging.StreamHandler())
+
+    # Redirect stdout/stderr
+    if cfg.redirect_std:
+        sys.stdout = open(os.path.join(log_dir, "stdout"), "a")
+        sys.stderr = open(os.path.join(log_dir, "stderr"), "a")
+
+
+def install(cfg):
+    print "Preparing to upload necessary static files to S3..."
+    input_helpers.continue_or_exit()
+
+    s3_manager = geoblogger.s3_manager.S3Manager(cfg.s3_access_id, cfg.s3_secret, cfg.s3_bucket)
+    env = jinja2.Environment(loader=jinja2.PackageLoader('geoblogger', 'templates'))
+    s3_manager.do_auth()
+
+    print "Uploading static files..."
+    files = [
+        "css/magnific-popup.css",
+
+        "js/highcharts.js",
+        "js/imagesloaded.pkgd.min.js",
+        "js/jquery.magnific-popup.min.js",
+        "js/jquery.min.js",
+        "js/list.js",
+        "js/wookmark.js"
+    ]
+    for name in files:
+        print "\tUploading %s" % name
+        s3_manager.add_file_from_filename(name, "../%s" % name)
+
+    tfiles = [
+        "error.html",
+        "index.html",
+        "list_gpx.html"
+    ]
+    for name in tfiles:
+        print "\tUploading %s" % name
+        s3_manager.add_file(
+            name,
+            env.get_template(name).render(
+                config=cfg
+            )
+        )
+
+
+def run(cfg):
+    if cfg.blog_method == "list":
+        blog_app = autoblogger_app.AutoBloggerApp2(cfg)
+    else:
+        blog_app = autoblogger_app.AutoBloggerApp1(cfg)
+
+    blog_app.do_auth()
+
+    # Find New Blogs
+    new_blogposts = blog_app.find_new_posts()
+
+    if len(new_blogposts) == 0:
+        print "Did not find any new blogs."
+    else:
+        print "Found %s new or updated blogs!" % len(new_blogposts)
+        for new_blogpost in new_blogposts:
+            print "\t %s" % new_blogpost
+
+        input_helpers.continue_or_exit(cfg.prompt)
+
+        # Process A Blogpost
+        for new_blogpost in new_blogposts:
+            blog_app.process_blogpost(new_blogpost)
+
+    # Process Image Gallery
+    print "About to update the image gallery..."
+    input_helpers.continue_or_exit(cfg.prompt)
+
+    gallery_app = imagegallery_app.ImageGalleryApp(blog_app)
+    gallery_app.create_image_gallery()
+
+    # Process Interactive Map
+    print "About to update the interactive map (this could take a while)..."
+    input_helpers.continue_or_exit(cfg.prompt)
+
+    map_app = interactivemap_app.InteractiveMapApp(blog_app)
+    map_app.create_map()
+
+    print "Finished! Blog is up to date!"
+
+
+def backup(cfg):
+    backup_app = folderbackup_app.FolderBackupApp(cfg)
+    backup_app.backup()
+
+
+def main():
+    # Parse Arguments
+    parser = argparse.ArgumentParser(description="Geo Blogger App", prog="geobloggerapp")
+    parser.add_argument("-c", action="store", dest="config_path", required=True, help="Config file.")
+    parser.add_argument('--install', action='store_true', dest="install", help="Run this to install and upload static files to S3")
+    parser.add_argument('--version', action='version', version='%(prog)s-0.0.1')
+    args = parser.parse_args()
+
+    cfg = parse_config(args)
+    setup_logging(cfg)
+
+    if args.install:
+        install(cfg)
+    else:
+        run(cfg)
+        backup(cfg)
+
+if __name__ == "__main__":
+    main()

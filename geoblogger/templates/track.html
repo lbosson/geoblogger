@@ -1,0 +1,16 @@
+<h3 id="stats">Overall Statistics</h3>
+<ul>
+  <li>Distance: {{ distance }} km ({{ distance_m }} miles)</li>
+  <li>Days Riding: {{ days_riding }}</li>
+  <li>Max Elevation: {{ max_altitude }} m ({{ max_altitude_f }} feet)</li>
+</ul>
+<br/>
+<h3 id="map">Interactive Map</h3>
+Click on any part of the route to see a description and photos of that section and link to the blog post.<br/>
+<iframe height="600" src="{{ config.s3_website_prefix }}/maps/interactivemap.html" width="100%"></iframe><br/>
+<br/>
+<a href="{{ config.s3_website_prefix }}/list_gpx.html" rel="nofollow" target="_blank">High Resolution GPX Files</a><br/>
+<br/>
+<h3 id="elevation_chart">Elevation Chart</h3>
+<iframe height="420" src="{{ config.s3_website_prefix }}/charts/interactivechart.html" width="100%"></iframe><br/>
+<br/>
