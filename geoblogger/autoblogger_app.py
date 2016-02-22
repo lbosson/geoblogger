@@ -111,7 +111,7 @@ class AutoBloggerApp(object):
 
         print "\tProcessing gpx file..."
         gpx_name, gpx_path, gpx_up_to_date = self.find_gpx(post_name)
-        gpx = self.process_gpx(gpx_name, gpx_path, gpx_up_to_date)
+        gpx = self.process_gpx(post_name, gpx_name, gpx_path, gpx_up_to_date)
 
         print "\tCreating blogpost..."
         self.create_blogpost(post_name, gpx, images, videos)
@@ -218,7 +218,7 @@ class AutoBloggerApp(object):
 
             self.after_process_video(video)
 
-    def process_gpx(self, name, path, up_to_date):
+    def process_gpx(self, post_name, name, path, up_to_date):
         print "\t\tParsing GPX file..."
         gpx = parse_gpx.parse_gpx(path)
 
@@ -228,7 +228,7 @@ class AutoBloggerApp(object):
 
         print "\t\tUploading GPX file..."
         self._s3_manager.add_file_from_filename(
-            "gpx/%s" % name.replace(" ", "_"),
+            "gpx/%s" % post_name.replace(" ", "_"),
             path
         )
 
@@ -533,8 +533,8 @@ class AutoBloggerApp1(AutoBloggerApp):
         else:
             self._post_watcher.mark_uptodate(video.name)
 
-    def process_gpx(self, name, path, up_to_date):
-        gpx = super(AutoBloggerApp1, self).process_gpx(name, path, up_to_date)
+    def process_gpx(self, post_name, name, path, up_to_date):
+        gpx = super(AutoBloggerApp1, self).process_gpx(post_name, name, path, up_to_date)
         self._post_watcher.mark_uptodate(name)
         return gpx
 
@@ -658,8 +658,8 @@ class AutoBloggerApp2(AutoBloggerApp):
         else:
             self._video_watcher.mark_uptodate(video.name)
 
-    def process_gpx(self, name, path, up_to_date):
-        gpx = super(AutoBloggerApp2, self).process_gpx(name, path, up_to_date)
+    def process_gpx(self, post_name, name, path, up_to_date):
+        gpx = super(AutoBloggerApp2, self).process_gpx(post_name, name, path, up_to_date)
         self._gpx_watcher.mark_uptodate(name)
         return gpx
 

@@ -22,6 +22,10 @@ Limitations:
 1. Quite involved setup process
 2. Quite rigid format unless you are comfortable changing Jinja templates and Python code
 
+Sample:
+
+A sample blog is included in the samples folder in two different forms. Here is what the sample blog looks like: http://geobloggersample.blogspot.com/
+
 
 BEFORE YOU START
 ----------------
@@ -215,6 +219,8 @@ Click the edit icon and paste this in replacing <> with your info:
 
 MY TODO's
 ---------
+Don't use track name, use blog post name
+Bugs in the interactive map for "folder method"
 Support deleting of entire blogposts and resources
 Post code on github
 Search code for magic values and move to config
