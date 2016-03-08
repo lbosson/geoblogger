@@ -66,7 +66,10 @@ def create_kml_placemarks_for_tracks_and_waypoints(tracks, waypoints, sample=1, 
 
 
 def create_kml_from_tracks_and_waypoints(tracks, waypoints):
-    return KML.kml(KML.document(create_kml_placemarks_for_tracks_and_waypoints(tracks, waypoints)))
+    doc = KML.Document()
+    for placemark in create_kml_placemarks_for_tracks_and_waypoints(tracks, waypoints):
+        doc.append(placemark)
+    return KML.kml(doc)
 
 
 def create_kml_from_track(track):

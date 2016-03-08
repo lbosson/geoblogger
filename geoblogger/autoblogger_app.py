@@ -1,7 +1,4 @@
 import StringIO
-
-import itertools
-
 import os
 import datetime
 import collections
@@ -239,7 +236,7 @@ class AutoBloggerApp(object):
 
         print "\t\tUploading GPX file..."
         self._s3_manager.add_file_from_filename(
-            "gpx/%s" % post_name.replace(" ", "_"),
+            "gpx/%s.GPX" % post_name.replace(" ", "_"),
             path
         )
 
@@ -274,13 +271,12 @@ class AutoBloggerApp(object):
             print "\t\tUploading Chart HTML file..."
             chart_html = chart_template.render(
                 title=name,
-                chart_data=list(itertools.chain.from_iterable([t.get_altitude_chart_data() for t in tracks])),
+                chart_data=parse_gpx.Track.combine_altitude_chart_data(tracks),
                 min_elevation=min([t.min_elevation for t in tracks]),
                 max_elevation=max([t.max_elevation for t in tracks]),
                 config=self._config
             )
             self._s3_manager.add_file("charts/%s.html" % name.replace(" ", "_"), chart_html)
-            print "\t\tNo tracks or waypoints found for %s" % name
 
         return gpx
 

@@ -79,5 +79,20 @@ class Track(object):
         return tracks
 
     def get_altitude_chart_data(self, limit=1000):
-        sample = int(len(self.altitude_chart) / limit) if limit and len(self.altitude_chart) > limit else 1
-        return [p for i, p in enumerate(self.altitude_chart) if i % sample == 0]
+        return self._get_altitude_chart_data(self.altitude_chart, limit=limit)
+
+    @staticmethod
+    def _get_altitude_chart_data(data, limit):
+        sample = int(len(data) / limit) if limit and len(data) > limit else 1
+        return [p for i, p in enumerate(data) if i % sample == 0]
+
+    @staticmethod
+    def combine_altitude_chart_data(tracks, limit=1000):
+        if not tracks:
+            return None
+        data = tracks[0].altitude_chart
+        for track in tracks[1:]:
+            last_d = data[-1][0]
+            for d, e in track.altitude_chart:
+                data.append([d + last_d, e])
+        return Track._get_altitude_chart_data(data, limit)
