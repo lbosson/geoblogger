@@ -144,7 +144,8 @@ class InteractiveMapApp(object):
                     tracks,
                     waypoints,
                     sample=sample,
-                    description=template.render(**variables)
+                    description=template.render(**variables),
+                    name=name
                 )
             )
 

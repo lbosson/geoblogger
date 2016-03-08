@@ -12,7 +12,7 @@ def kml_to_string(kml):
     return etree.tostring(etree.ElementTree(kml), pretty_print=True)
 
 
-def create_kml_placemarks_for_tracks_and_waypoints(tracks, waypoints, sample=1, description=None):
+def create_kml_placemarks_for_tracks_and_waypoints(tracks, waypoints, sample=1, description=None, color=None, name=None):
     placemarks = []
     tracks = tracks or []
     waypoints = waypoints or []
@@ -22,11 +22,11 @@ def create_kml_placemarks_for_tracks_and_waypoints(tracks, waypoints, sample=1, 
                        i % sample == 0 or len(track.points) < 100]
         placemarks.append(
             KML.Placemark(
-                KML.name(track.name),
+                KML.name(name or track.name),
                 KML.description(description or track.description or ""),
                 KML.Style(
                     KML.LineStyle(
-                        get_random_color() if len(tracks) > 1 else KML.color('ff78fff0'),
+                        KML.color(color) if color else get_random_color(),
                         KML.width(3)
                     )
                 ),
@@ -42,9 +42,8 @@ def create_kml_placemarks_for_tracks_and_waypoints(tracks, waypoints, sample=1, 
         coordinates = "%s,%s" % (waypoint.long, waypoint.lat)
         placemarks.append(
             KML.Placemark(
-                KML.name(waypoint.name),
-                KML.description(
-                    waypoint.description if waypoint.description else ""),
+                KML.name(name or waypoint.name),
+                KML.description(description or waypoint.description or ""),
                 KML.Style(
                     KML.IconStyle(
                         KML.color("ffffffff"),
