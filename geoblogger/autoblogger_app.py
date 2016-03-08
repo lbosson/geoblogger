@@ -1,4 +1,7 @@
 import StringIO
+
+import itertools
+
 import os
 import datetime
 import collections
@@ -22,8 +25,16 @@ class AutoBloggerApp(object):
     def __init__(self, config):
         self._config = config
 
-        self._s3_manager = s3_manager.S3Manager(self._config.s3_access_id, self._config.s3_secret, self._config.s3_bucket)
-        self._blogger_manager = blogger_manager.BloggerManager(self._config.blogger_blog_id, self._config.blogger_client_id, self._config.blogger_secret)
+        self._s3_manager = s3_manager.S3Manager(
+            self._config.s3_access_id,
+            self._config.s3_secret,
+            self._config.s3_bucket
+        )
+        self._blogger_manager = blogger_manager.BloggerManager(
+            self._config.blogger_blog_id,
+            self._config.blogger_client_id,
+            self._config.blogger_secret
+        )
 
         self._env = jinja2.Environment(loader=jinja2.PackageLoader('geoblogger', 'templates'))
 
@@ -237,10 +248,12 @@ class AutoBloggerApp(object):
 
         tracks = parse_gpx.Track.parse_tracks_from_gpx(gpx)
         waypoints = parse_gpx.Waypoint.parse_waypoints_from_gpx(gpx)
-        if tracks:
-            track = tracks[0]
+
+        if not tracks and not waypoints:
+            print "\t\tNo tracks or waypoints found for %s" % name
+        else:
             print "\t\tUploading KML file..."
-            kml = kml_helpers.create_kml_from_track(track)
+            kml = kml_helpers.create_kml_from_tracks_and_waypoints(tracks, waypoints)
             self._s3_manager.add_file(
                 kml_helpers.relative_url_from_name(name),
                 kml_helpers.kml_to_string(kml),
@@ -250,9 +263,9 @@ class AutoBloggerApp(object):
             print "\t\tUploading Map HTML file..."
             map_html = map_template.render(
                 title=name,
-                lat=track.points[-1].latitude,
-                long=track.points[-1].longitude,
-                kml_url="http://geoblogger.s3-website-us-east-1.amazonaws.com/kml/%s.kml" % name.replace(" ", "_"),
+                lat=tracks[0].points[-1].latitude if tracks else waypoints[0].lat,
+                long=tracks[0].points[-1].longitude if tracks else waypoints[0].long,
+                kml_url="%s/%s" % (self._config.s3_website_prefix, kml_helpers.relative_url_from_name(name)),
                 track=bool(tracks),
                 config=self._config
             )
@@ -261,32 +274,12 @@ class AutoBloggerApp(object):
             print "\t\tUploading Chart HTML file..."
             chart_html = chart_template.render(
                 title=name,
-                chart_data=track.get_altitude_chart_data(),
-                min_elevation=track.min_elevation,
-                max_elevation=track.max_elevation,
+                chart_data=list(itertools.chain.from_iterable([t.get_altitude_chart_data() for t in tracks])),
+                min_elevation=min([t.min_elevation for t in tracks]),
+                max_elevation=max([t.max_elevation for t in tracks]),
                 config=self._config
             )
             self._s3_manager.add_file("charts/%s.html" % name.replace(" ", "_"), chart_html)
-        elif waypoints:
-            waypoint = waypoints[0]
-            kml = kml_helpers.create_kml_from_waypoint(waypoint)
-            self._s3_manager.add_file(
-                kml_helpers.relative_url_from_name(name),
-                kml_helpers.kml_to_string(kml),
-                content_type="application/kml+xml"
-            )
-
-            print "\t\tUploading Map HTML file..."
-            map_html = map_template.render(
-                title=name,
-                lat=waypoint.lat,
-                long=waypoint.long,
-                kml_url="http://geoblogger.s3-website-us-east-1.amazonaws.com/kml/%s.kml" % name.replace(" ", "_"),
-                track=bool(tracks),
-                config=self._config
-            )
-            self._s3_manager.add_file("maps/%s.html" % name.replace(" ", "_"), map_html)
-        else:
             print "\t\tNo tracks or waypoints found for %s" % name
 
         return gpx
@@ -301,17 +294,6 @@ class AutoBloggerApp(object):
             print "Didn't find any waypoints or tracks in gpx file - %s" % post_name
             exit(-1)
 
-        if tracks:
-            if len(tracks) > 1:
-                log.warn("GPX %s contains more than 1 track (%s)." % (post_name, len(tracks)))
-            track = tracks[0]
-            is_track = True
-        else:
-            if len(waypoints) > 1:
-                log.warn("GPX %s contains more than 1 waypoint (%s)." % (post_name, len(waypoints)))
-            track = waypoints[0]
-            is_track = False
-
         existing_post = self.get_post(post_name)
 
         dt = datetime.datetime(*[int(s) for s in post_name.split(" ")[0].split("-")], hour=20)
@@ -325,7 +307,8 @@ class AutoBloggerApp(object):
         video_urls = []
         if videos:
             videos.sort(key=lambda k: k[0])
-            video_urls = ["%s/%s" % (self._config.s3_website_prefix, video_helpers.relative_url_from_name(v[0])) for v in videos if not v.deleted]
+            video_urls = ["%s/%s" % (self._config.s3_website_prefix, video_helpers.relative_url_from_name(v[0])) for v
+                          in videos if not v.deleted]
 
         # Get Image Links
         featured_img = None
@@ -337,40 +320,45 @@ class AutoBloggerApp(object):
                     continue
 
                 if featured_img is None or image_helpers.is_featured(image.tags):
-                    featured_img = "%s/%s" % (self._config.s3_website_prefix, image_helpers.relative_url_from_name(image.name, "m"))
+                    featured_img = "%s/%s" % (
+                        self._config.s3_website_prefix, image_helpers.relative_url_from_name(image.name, "m"))
 
                 img_urls.append(
                     (
-                        "%s/%s" % (self._config.s3_website_prefix, image_helpers.relative_url_from_name(image.name, "f")),
-                        "%s/%s" % (self._config.s3_website_prefix, image_helpers.relative_url_from_name(image.name, "m")),
+                        "%s/%s" % (
+                            self._config.s3_website_prefix, image_helpers.relative_url_from_name(image.name, "f")),
+                        "%s/%s" % (
+                            self._config.s3_website_prefix, image_helpers.relative_url_from_name(image.name, "m")),
                         image_helpers.get_caption(image.tags)
                     )
                 )
         else:
             log.warning("No pictures found for %s." % post_name)
 
+        description = "<br /><br />".join([t.description for t in tracks + waypoints if t.description])
+
         variables = {
             "featured_photo": featured_img,
-            "description": track.description.replace("\n", "<br />") if track.description else "Nothing here yet.",
+            "description": description or "Nothing here yet.",
             "photos": img_urls,
             "videos": video_urls,
             "map_share_link": map_url,
             "config": self._config
         }
 
-        if is_track:
+        if tracks:
             variables["map_download_link"] = gpx_url
             variables["chart_share_link"] = chart_url
-            variables["distance"] = str(int(track.distance / 1000.0))
-            variables["distance_m"] = str(int(track.distance / 1000.0 * 0.621371192))
-            variables["max_altitude"] = str(int(track.max_elevation))
-            variables["max_altitude_f"] = str(int(track.max_elevation * 3.281))
-            variables["min_altitude"] = str(int(track.min_elevation))
-            variables["min_altitude_f"] = str(int(track.min_elevation * 3.281))
-            variables["ascent"] = str(int(track.ascent))
-            variables["ascent_f"] = str(int(track.ascent * 3.281))
-            variables["descent"] = str(int(track.descent))
-            variables["descent_f"] = str(int(track.descent * 3.281))
+            variables["distance"] = str(int(sum([t.distance for t in tracks]) / 1000.0))
+            variables["distance_m"] = str(int(sum([t.distance for t in tracks]) / 1000.0 * 0.621371192))
+            variables["max_altitude"] = str(int(max([t.max_elevation for t in tracks])))
+            variables["max_altitude_f"] = str(int(max([t.max_elevation for t in tracks]) * 3.281))
+            variables["min_altitude"] = str(int(min([t.min_elevation for t in tracks])))
+            variables["min_altitude_f"] = str(int(min([t.min_elevation for t in tracks]) * 3.281))
+            variables["ascent"] = str(int(sum([t.ascent for t in tracks])))
+            variables["ascent_f"] = str(int(sum([t.ascent for t in tracks]) * 3.281))
+            variables["descent"] = str(int(sum([t.descent for t in tracks])))
+            variables["descent_f"] = str(int(sum([t.descent for t in tracks]) * 3.281))
 
         if existing_post:
             input_helpers.continue_or_exit(
@@ -419,7 +407,11 @@ class AutoBloggerApp1(AutoBloggerApp):
     def __init__(self, config):
         super(AutoBloggerApp1, self).__init__(config)
 
-        self._post_watcher = filewatch.Filewatch(self._config.blog_folder, os.path.join(self._config.blog_folder, ".meta", "post"), fresh=False, reverse=False, recursive_level=1)
+        self._post_watcher = filewatch.Filewatch(
+            self._config.blog_folder,
+            os.path.join(self._config.blog_folder, ".meta", "post"), fresh=False,
+            reverse=False, recursive_level=1
+        )
 
         self._images = collections.defaultdict(list)
         self._videos = collections.defaultdict(list)
@@ -552,10 +544,18 @@ class AutoBloggerApp2(AutoBloggerApp):
     def __init__(self, config):
         super(AutoBloggerApp2, self).__init__(config)
 
-        self._post_watcher = filewatch.Filewatch(os.path.join(self._config.blog_folder, "gpx"), os.path.join(self._config.blog_folder, ".meta", "post"), fresh=False, reverse=False, recursive_level=0)
-        self._gpx_watcher = filewatch.Filewatch(os.path.join(self._config.blog_folder, "gpx"), os.path.join(self._config.blog_folder, ".meta", "gpx"), fresh=False, reverse=False, recursive_level=0)
-        self._image_watcher = filewatch.Filewatch(os.path.join(self._config.blog_folder, "images"), os.path.join(self._config.blog_folder, ".meta", "image"), fresh=False, reverse=False, recursive_level=0)
-        self._video_watcher = filewatch.Filewatch(os.path.join(self._config.blog_folder, "videos"), os.path.join(self._config.blog_folder, ".meta", "video"), fresh=False, reverse=False, recursive_level=0)
+        self._post_watcher = filewatch.Filewatch(os.path.join(self._config.blog_folder, "gpx"),
+                                                 os.path.join(self._config.blog_folder, ".meta", "post"), fresh=False,
+                                                 reverse=False, recursive_level=0)
+        self._gpx_watcher = filewatch.Filewatch(os.path.join(self._config.blog_folder, "gpx"),
+                                                os.path.join(self._config.blog_folder, ".meta", "gpx"), fresh=False,
+                                                reverse=False, recursive_level=0)
+        self._image_watcher = filewatch.Filewatch(os.path.join(self._config.blog_folder, "images"),
+                                                  os.path.join(self._config.blog_folder, ".meta", "image"), fresh=False,
+                                                  reverse=False, recursive_level=0)
+        self._video_watcher = filewatch.Filewatch(os.path.join(self._config.blog_folder, "videos"),
+                                                  os.path.join(self._config.blog_folder, ".meta", "video"), fresh=False,
+                                                  reverse=False, recursive_level=0)
 
         self._name_map = {}
 

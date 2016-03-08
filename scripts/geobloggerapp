@@ -1,4 +1,9 @@
 #!/usr/bin/env python
+import os
+
+
+os.sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import argparse
 import config
 import logging
@@ -7,13 +12,13 @@ import sys
 import os
 import tempfile
 import jinja2
-import autoblogger_app
-import folderbackup_app
-import imagegallery_app
-import interactivemap_app
+import geoblogger.autoblogger_app
+import geoblogger.folderbackup_app
+import geoblogger.imagegallery_app
+import geoblogger.interactivemap_app
 import geoblogger.configuration
 import geoblogger.s3_manager
-import input_helpers
+import geoblogger.input_helpers
 
 
 def parse_config(args):
@@ -23,7 +28,7 @@ def parse_config(args):
 
     f = file(args.config_path)
     cfg = config.Config(f)
-    cfg.addMapping("config_path", args.config_path, None)
+    cfg.addMapping("config_path", args.config_path, "")
     cfg.addNamespace(logging)
     msg = geoblogger.configuration.validate_config(cfg)
     if msg:
@@ -64,7 +69,7 @@ def setup_logging(cfg):
 
 def install(cfg):
     print "Preparing to upload necessary static files to S3..."
-    input_helpers.continue_or_exit()
+    geoblogger.input_helpers.continue_or_exit()
 
     s3_manager = geoblogger.s3_manager.S3Manager(cfg.s3_access_id, cfg.s3_secret, cfg.s3_bucket)
     env = jinja2.Environment(loader=jinja2.PackageLoader('geoblogger', 'templates'))
@@ -102,9 +107,9 @@ def install(cfg):
 
 def run(cfg):
     if cfg.blog_method == "list":
-        blog_app = autoblogger_app.AutoBloggerApp2(cfg)
+        blog_app = geoblogger.autoblogger_app.AutoBloggerApp2(cfg)
     else:
-        blog_app = autoblogger_app.AutoBloggerApp1(cfg)
+        blog_app = geoblogger.autoblogger_app.AutoBloggerApp1(cfg)
 
     blog_app.do_auth()
 
@@ -118,7 +123,7 @@ def run(cfg):
         for new_blogpost in new_blogposts:
             print "\t %s" % new_blogpost
 
-        input_helpers.continue_or_exit(cfg.prompt)
+        geoblogger.input_helpers.continue_or_exit(cfg.prompt)
 
         # Process A Blogpost
         for new_blogpost in new_blogposts:
@@ -126,23 +131,23 @@ def run(cfg):
 
     # Process Image Gallery
     print "About to update the image gallery..."
-    input_helpers.continue_or_exit(cfg.prompt)
+    geoblogger.input_helpers.continue_or_exit(cfg.prompt)
 
-    gallery_app = imagegallery_app.ImageGalleryApp(blog_app)
+    gallery_app = geoblogger.imagegallery_app.ImageGalleryApp(blog_app)
     gallery_app.create_image_gallery()
 
     # Process Interactive Map
     print "About to update the interactive map (this could take a while)..."
-    input_helpers.continue_or_exit(cfg.prompt)
+    geoblogger.input_helpers.continue_or_exit(cfg.prompt)
 
-    map_app = interactivemap_app.InteractiveMapApp(blog_app)
+    map_app = geoblogger.interactivemap_app.InteractiveMapApp(blog_app)
     map_app.create_map()
 
     print "Finished! Blog is up to date!"
 
 
 def backup(cfg):
-    backup_app = folderbackup_app.FolderBackupApp(cfg)
+    backup_app = geoblogger.folderbackup_app.FolderBackupApp(cfg)
     backup_app.backup()
 
 
@@ -162,6 +167,7 @@ def main():
     else:
         run(cfg)
         backup(cfg)
+
 
 if __name__ == "__main__":
     main()

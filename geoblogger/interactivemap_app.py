@@ -1,5 +1,6 @@
-import random
 import time
+
+import geoblogger.kml_helpers
 import image_helpers
 import parse_gpx
 import logging
@@ -66,7 +67,8 @@ class InteractiveMapApp(object):
         imgs = self.images.get(name.replace(" ", "_"))
         if imgs:
             for img in imgs:
-                img_urls.append("%s/%s" % (self._autobloggerapp.config.s3_website_prefix, image_helpers.relative_url_from_name(img, 'm')))
+                img_urls.append("%s/%s" % (
+                self._autobloggerapp.config.s3_website_prefix, image_helpers.relative_url_from_name(img, 'm')))
         return img_urls
 
     def _process(self):
@@ -82,8 +84,7 @@ class InteractiveMapApp(object):
             new_tracks = parse_gpx.Track.parse_tracks_from_gpx(gpx)
             new_waypoints = parse_gpx.Waypoint.parse_waypoints_from_gpx(gpx)
 
-            self._tracks.extend(new_tracks)
-            self._tracks.extend(new_waypoints)
+            self._tracks.append((name, new_tracks, new_waypoints))
 
             points += sum([len(t.points) for t in new_tracks])
 
@@ -103,86 +104,55 @@ class InteractiveMapApp(object):
             print "\tCreating Chart..."
             self._chart = self.generate_elevation_chart(10000)
 
-        last_track = self._tracks[-1]
-        if isinstance(last_track, parse_gpx.Track):
-            self._center = last_track.points[-1].latitude, last_track.points[-1].longitude
+        last_name, last_tracks, last_waypoints = self._tracks[-1]
+        if last_tracks:
+            self._center = last_tracks[-1].points[-1].latitude, last_tracks[-1].points[-1].longitude
+        elif last_waypoints:
+            self._center = last_waypoints[-1].lat, last_waypoints[-1].long
         else:
-            self._center = last_track.lat, last_track.long
+            print "Error: unable to center interactive map!"
 
     def create_tracks_folder(self, sample):
         template = self._autobloggerapp.env.get_template("interactive_map_blog.html")
         tracks_folder = KML.Folder(KML.name("Tracks"))
-        for track in self._tracks:
-            if isinstance(track, parse_gpx.Track):
-                variables = {
-                    "description": track.description.replace("\n", "<br />") if track.description else "Nothing here yet.",
-                    "blog_link": self._autobloggerapp.posts.get(track.name).get("url") if self._autobloggerapp.posts.get(track.name) else None,
-                    "photos": self.get_images_for_blog(track.name),
-                    "distance": str(int(track.distance / 1000.0)),
-                    "distance_m": str(int(track.distance / 1000.0 * 0.621371192)),
-                    "max_altitude": str(int(track.max_elevation)),
-                    "max_altitude_f": str(int(track.max_elevation * 3.281)),
-                    "min_altitude": str(int(track.min_elevation)),
-                    "min_altitude_f": str(int(track.min_elevation * 3.281)),
-                    "ascent": str(int(track.ascent)),
-                    "ascent_f": str(int(track.ascent * 3.281)),
-                    "descent": str(int(track.descent)),
-                    "descent_f": str(int(track.descent * 3.281))
-                }
-                coordinates = ["%s,%s" % (p.longitude, p.latitude) for i, p in enumerate(track.points) if
-                               i % sample == 0 or len(track.points) < 100]
-                tracks_folder.append(
-                    KML.Placemark(
-                        KML.name(track.name),
-                        KML.description(template.render(**variables)),
-                        KML.Style(
-                            KML.LineStyle(
-                                KML.color('ff%02X%02X%02X' % (
-                                    random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))),
-                                KML.width(3)
-                            )
-                        ),
-                        KML.MultiGeometry(
-                            KML.LineString(
-                                KML.coordinates(" ".join(coordinates))
-                            )
-                        )
-                    )
-                )
+        for name, tracks, waypoints in self._tracks:
+            description = "<br /><br />".join(
+                [t.description.replace("\n", "<br />") for t in tracks + waypoints if t.description])
 
-            if isinstance(track, parse_gpx.Waypoint):
-                variables = {
-                    "description": track.description.replace("\n", "<br />") if track.description else "Nothing here yet.",
-                    "blog_link": self._autobloggerapp.posts.get(track.name).get("url") if self._autobloggerapp.posts.get(track.name) else None,
-                    "photos": self.get_images_for_blog(track.name),
-                }
-                coordinates = "%s,%s" % (track.long, track.lat)
-                tracks_folder.append(
-                    KML.Placemark(
-                        KML.name(track.name),
-                        KML.description(template.render(**variables)),
-                        KML.Style(
-                            KML.IconStyle(
-                                KML.color("ffffffff"),
-                                KML.scale(1.0),
-                                KML.Icon(
-                                    KML.href("http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png")
-                                ),
-                            ),
-                            KML.LabelStyle(
-                                KML.scale(0.0)
-                            )
-                        ),
-                        KML.Point(
-                            KML.coordinates(coordinates)
-                        )
-                    )
+            variables = {
+                "blog_link": self._autobloggerapp.posts.get(name).get("url") if self._autobloggerapp.posts.get(
+                    name) else None,
+                "photos": self.get_images_for_blog(name),
+                "description": description or "Nothing here yet.",
+                "config": self._autobloggerapp.config
+            }
+
+            if tracks:
+                variables["distance"] = str(int(sum([t.distance for t in tracks]) / 1000.0))
+                variables["distance_m"] = str(int(sum([t.distance for t in tracks]) / 1000.0 * 0.621371192))
+                variables["max_altitude"] = str(int(max([t.max_elevation for t in tracks])))
+                variables["max_altitude_f"] = str(int(max([t.max_elevation for t in tracks]) * 3.281))
+                variables["min_altitude"] = str(int(min([t.min_elevation for t in tracks])))
+                variables["min_altitude_f"] = str(int(min([t.min_elevation for t in tracks]) * 3.281))
+                variables["ascent"] = str(int(sum([t.ascent for t in tracks])))
+                variables["ascent_f"] = str(int(sum([t.ascent for t in tracks]) * 3.281))
+                variables["descent"] = str(int(sum([t.descent for t in tracks])))
+                variables["descent_f"] = str(int(sum([t.descent for t in tracks]) * 3.281))
+
+            tracks_folder.extend(
+                geoblogger.kml_helpers.create_kml_placemarks_for_tracks_and_waypoints(
+                    tracks,
+                    waypoints,
+                    sample=sample,
+                    description=template.render(**variables)
                 )
-        last_track = self._tracks[-1]
-        if isinstance(last_track, parse_gpx.Track):
-            coordinates = "%s,%s" % (last_track.points[-1].longitude, last_track.points[-1].latitude)
+            )
+
+        last_name, last_tracks, last_waypoints = self._tracks[-1]
+        if last_tracks:
+            coordinates = "%s,%s" % (last_tracks[-1].points[-1].longitude, last_tracks[-1].points[-1].latitude)
         else:
-            coordinates = "%s,%s" % (last_track.long, last_track.lat)
+            coordinates = "%s,%s" % (last_waypoints[-1].long, last_waypoints[-1].lat)
 
         tracks_folder.append(
             KML.Placemark(
@@ -215,7 +185,8 @@ class InteractiveMapApp(object):
             data += [[p[0] + start, p[1]] for p in track.get_altitude_chart_data(limit=None)]
             start = data[-1][0]
         sample = int(len(data) / limit) if limit and len(data) > limit else 1
-        return [[int(p[0]), int(p[1])] for i, p in enumerate(data) if i % sample == 0 and p[0] is not None and p[1] is not None]
+        return [[int(p[0]), int(p[1])] for i, p in enumerate(data) if
+                i % sample == 0 and p[0] is not None and p[1] is not None]
 
     def create_map(self):
         print "Starting creation of interactive map (this may take a while)..."
@@ -223,8 +194,10 @@ class InteractiveMapApp(object):
 
         print "\tUploading KML files..."
         version = int(time.time())
-        self._autobloggerapp._s3_manager.add_file("kml/interactivemap_%s.kml" % version, etree.tostring(etree.ElementTree(self.kml_full), pretty_print=True))
-        self._autobloggerapp._s3_manager.add_file("kml/interactivemaplight_%s.kml" % version, etree.tostring(etree.ElementTree(self.kml_light), pretty_print=True))
+        self._autobloggerapp._s3_manager.add_file("kml/interactivemap_%s.kml" % version,
+                                                  etree.tostring(etree.ElementTree(self.kml_full), pretty_print=True))
+        self._autobloggerapp._s3_manager.add_file("kml/interactivemaplight_%s.kml" % version,
+                                                  etree.tostring(etree.ElementTree(self.kml_light), pretty_print=True))
 
         print "\tUploading HTML files..."
         map_template = self._autobloggerapp.env.get_template("interactive_map.html")
@@ -275,8 +248,10 @@ class InteractiveMapApp(object):
         )
 
         if not self._autobloggerapp.config.interactive_map_page_id:
-            log.error("Unable to update interactive map page because it's not set in the config. Please create a page on your blog and add the id to the config for 'interactive_map_page_id'.")
-            print "\tUnable to update interactive map page because it's not set in the config. Please create a page on your blog and add the id to the config for 'interactive_map_page_id'."
+            log.error("Unable to update interactive map page because it's not set in the config. "
+                      "Please create a page on your blog and add the id to the config for 'interactive_map_page_id'.")
+            print "\tUnable to update interactive map page because it's not set in the config. " \
+                  "Please create a page on your blog and add the id to the config for 'interactive_map_page_id'."
             return
 
         response = self._autobloggerapp._blogger_manager.update_page(
