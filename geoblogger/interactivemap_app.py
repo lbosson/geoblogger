@@ -1,5 +1,7 @@
 import time
 
+import itertools
+
 import geoblogger.kml_helpers
 import image_helpers
 import parse_gpx
@@ -178,16 +180,7 @@ class InteractiveMapApp(object):
         return tracks_folder
 
     def generate_elevation_chart(self, limit=10000):
-        start = 0
-        data = []
-        for track in self._tracks:
-            if not isinstance(track, parse_gpx.Track):
-                continue
-            data += [[p[0] + start, p[1]] for p in track.get_altitude_chart_data(limit=None)]
-            start = data[-1][0]
-        sample = int(len(data) / limit) if limit and len(data) > limit else 1
-        return [[int(p[0]), int(p[1])] for i, p in enumerate(data) if
-                i % sample == 0 and p[0] is not None and p[1] is not None]
+        return parse_gpx.Track.combine_altitude_chart_data(list(itertools.chain(*[t for n, t, w in self._tracks])), limit)
 
     def create_map(self):
         print "Starting creation of interactive map (this may take a while)..."

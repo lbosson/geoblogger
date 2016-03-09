@@ -65,11 +65,12 @@ class Track(object):
                         last.longitude,
                         last.elevation
                     )
-                    t.altitude_chart.append([int(t.distance / 10) / 100.0, p.elevation])
-                    if p.elevation is not None and p.elevation > t.max_elevation:
-                        t.max_elevation = p.elevation
-                    if p.elevation is not None and p.elevation < t.min_elevation:
-                        t.min_elevation = p.elevation
+                    if p.elevation is not None:
+                        t.altitude_chart.append([int(t.distance / 10) / 100.0, p.elevation])
+                        if p.elevation > t.max_elevation:
+                            t.max_elevation = p.elevation
+                        if p.elevation < t.min_elevation:
+                            t.min_elevation = p.elevation
 
                     if abs(last.longitude - p.longitude) > .0001 or abs(last.latitude - p.latitude) > .0001:
                         t.points.append(p)
@@ -84,7 +85,7 @@ class Track(object):
     @staticmethod
     def _get_altitude_chart_data(data, limit):
         sample = int(len(data) / limit) if limit and len(data) > limit else 1
-        return [p for i, p in enumerate(data) if i % sample == 0]
+        return [p for i, p in enumerate(data) if data is not None and i % sample == 0]
 
     @staticmethod
     def combine_altitude_chart_data(tracks, limit=1000):

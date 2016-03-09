@@ -220,10 +220,9 @@ Click the edit icon and paste this in replacing <> with your info:
 
 MY TODO's
 ---------
-Don't use track name, use blog post name
-Bugs in the interactive map for "folder method"
+Fix elevation chart on track page
+Test "folder method"
 Support deleting of entire blogposts and resources
-Post code on github
 Search code for magic values and move to config
 Review logging
 Review prompts and prints
@@ -231,7 +230,6 @@ Review prompts and prints
 
 FUTURE ENHANCEMENTS
 -------------------
-Support for multiple tracks and waypoints per GPX
 Support leafletjs
 Support template overriding
 Support other naming conventions get blog date from tracks(?)
