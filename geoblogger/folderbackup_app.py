@@ -19,7 +19,9 @@ class FolderBackupApp(object):
             watcher = filewatch.Filewatch(bak_source, db_loc, skiplist=skip)
 
             print "About to backup %s to %s found %s file changes..." % (bak_source, bak_dest, len(watcher.files_to_backup))
-            input_helpers.continue_or_exit(self._config.prompt)
+            if not input_helpers.continue_or_skip(self._config.prompt):
+                print "Skipping."
+                return
 
             try:
                 if not os.path.exists(bak_dest):

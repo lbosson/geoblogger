@@ -123,25 +123,22 @@ def run(cfg):
         for new_blogpost in new_blogposts:
             print "\t %s" % new_blogpost
 
-        geoblogger.input_helpers.continue_or_exit(cfg.prompt)
-
-        # Process A Blogpost
-        for new_blogpost in new_blogposts:
-            blog_app.process_blogpost(new_blogpost)
+        if geoblogger.input_helpers.continue_or_skip(cfg.prompt):
+            # Process A Blogpost
+            for new_blogpost in new_blogposts:
+                blog_app.process_blogpost(new_blogpost)
 
     # Process Image Gallery
     print "About to update the image gallery..."
-    geoblogger.input_helpers.continue_or_exit(cfg.prompt)
-
-    gallery_app = geoblogger.imagegallery_app.ImageGalleryApp(blog_app)
-    gallery_app.create_image_gallery()
+    if geoblogger.input_helpers.continue_or_skip(cfg.prompt):
+        gallery_app = geoblogger.imagegallery_app.ImageGalleryApp(blog_app)
+        gallery_app.create_image_gallery()
 
     # Process Interactive Map
     print "About to update the interactive map (this could take a while)..."
-    geoblogger.input_helpers.continue_or_exit(cfg.prompt)
-
-    map_app = geoblogger.interactivemap_app.InteractiveMapApp(blog_app)
-    map_app.create_map()
+    if geoblogger.input_helpers.continue_or_skip(cfg.prompt):
+        map_app = geoblogger.interactivemap_app.InteractiveMapApp(blog_app)
+        map_app.create_map()
 
     print "Finished! Blog is up to date!"
 
