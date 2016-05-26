@@ -268,15 +268,16 @@ class AutoBloggerApp(object):
             )
             self._s3_manager.add_file("maps/%s.html" % name.replace(" ", "_"), map_html)
 
-            print "\t\tUploading Chart HTML file..."
-            chart_html = chart_template.render(
-                title=name,
-                chart_data=parse_gpx.Track.combine_altitude_chart_data(tracks),
-                min_elevation=min([t.min_elevation for t in tracks]),
-                max_elevation=max([t.max_elevation for t in tracks]),
-                config=self._config
-            )
-            self._s3_manager.add_file("charts/%s.html" % name.replace(" ", "_"), chart_html)
+            if tracks:
+                print "\t\tUploading Chart HTML file..."
+                chart_html = chart_template.render(
+                    title=name,
+                    chart_data=parse_gpx.Track.combine_altitude_chart_data(tracks),
+                    min_elevation=min([t.min_elevation for t in tracks]),
+                    max_elevation=max([t.max_elevation for t in tracks]),
+                    config=self._config
+                )
+                self._s3_manager.add_file("charts/%s.html" % name.replace(" ", "_"), chart_html)
 
         return gpx
 
