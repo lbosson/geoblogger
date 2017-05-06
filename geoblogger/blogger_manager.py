@@ -112,11 +112,11 @@ class BloggerManager(object):
         )
         return response.json()
 
-    def create_blog(self, title, datetime, content, labels=None):
+    def create_blog(self, title, datetime, content, labels=None, draft=False):
         response = requests.post(
             BLOGGER_API_PREFIX + self.blog_id + "/posts",
             auth=self._auth,
-            params={"isDraft": False},
+            params={"isDraft": draft},
             json={
                 "title": title,
                 "published": datetime.isoformat() + "+00:00",

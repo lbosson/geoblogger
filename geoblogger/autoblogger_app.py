@@ -147,50 +147,51 @@ class AutoBloggerApp(object):
             self.before_process_image(image)
             print "\tProcessing %s..." % image.name
 
-            if image.deleted:
-                print "\t\tFile has been removed, deleting."
-                self._s3_manager.delete_key(image_helpers.relative_url_from_name(image.name, 's'))
-                self._s3_manager.delete_key(image_helpers.relative_url_from_name(image.name, 'm'))
-                self._s3_manager.delete_key(image_helpers.relative_url_from_name(image.name, 'f'))
-                self.after_process_image(image)
-                continue
+            if not self._config.mock:
+                if image.deleted:
+                    print "\t\tFile has been removed, deleting."
+                    self._s3_manager.delete_key(image_helpers.relative_url_from_name(image.name, 's'))
+                    self._s3_manager.delete_key(image_helpers.relative_url_from_name(image.name, 'm'))
+                    self._s3_manager.delete_key(image_helpers.relative_url_from_name(image.name, 'f'))
+                    self.after_process_image(image)
+                    continue
 
-            print "\t\tCreating small image..."
-            pil_image = PIL.Image.open(image.source)
-            timage = pil_image.copy()
-            timage.thumbnail(self._config.image_size_small, PIL.Image.ANTIALIAS)
-            buffer = StringIO.StringIO()
-            timage.save(buffer, "JPEG", quality=80, optimize=True)
-            buffer.seek(0)
-
-            print "\t\tUploading small image..."
-            n = image_helpers.relative_url_from_name(image.name, 's')
-            self._s3_manager.add_file_from_file(n, buffer, content_type="image/jpeg")
-            buffer = StringIO.StringIO()
-
-            print "\t\tCreating medium image..."
-            timage = pil_image.copy()
-            timage.thumbnail(self._config.image_size_medium, PIL.Image.ANTIALIAS)
-            timage.save(buffer, "JPEG", quality=80, optimize=True)
-            buffer.seek(0)
-
-            print "\t\tUploading medium image..."
-            n = image_helpers.relative_url_from_name(image.name, 'm')
-            self._s3_manager.add_file_from_file(n, buffer, content_type="image/jpeg")
-            buffer = StringIO.StringIO()
-
-            print "\t\tCreating large image..."
-            if self._config.image_size_large:
-                pil_image.thumbnail(self._config.image_size_large, PIL.Image.ANTIALIAS)
-                pil_image.save(buffer, "JPEG", quality=90, optimize=True)
+                print "\t\tCreating small image..."
+                pil_image = PIL.Image.open(image.source)
+                timage = pil_image.copy()
+                timage.thumbnail(self._config.image_size_small, PIL.Image.ANTIALIAS)
+                buffer = StringIO.StringIO()
+                timage.save(buffer, "JPEG", quality=80, optimize=True)
                 buffer.seek(0)
 
-            print "\t\tUploading large image..."
-            n = image_helpers.relative_url_from_name(image.name, 'f')
-            if self._config.image_size_large:
+                print "\t\tUploading small image..."
+                n = image_helpers.relative_url_from_name(image.name, 's')
                 self._s3_manager.add_file_from_file(n, buffer, content_type="image/jpeg")
-            else:
-                self._s3_manager.add_file_from_filename(n, image.source)
+                buffer = StringIO.StringIO()
+
+                print "\t\tCreating medium image..."
+                timage = pil_image.copy()
+                timage.thumbnail(self._config.image_size_medium, PIL.Image.ANTIALIAS)
+                timage.save(buffer, "JPEG", quality=80, optimize=True)
+                buffer.seek(0)
+
+                print "\t\tUploading medium image..."
+                n = image_helpers.relative_url_from_name(image.name, 'm')
+                self._s3_manager.add_file_from_file(n, buffer, content_type="image/jpeg")
+                buffer = StringIO.StringIO()
+
+                print "\t\tCreating large image..."
+                if self._config.image_size_large:
+                    pil_image.thumbnail(self._config.image_size_large, PIL.Image.ANTIALIAS)
+                    pil_image.save(buffer, "JPEG", quality=90, optimize=True)
+                    buffer.seek(0)
+
+                print "\t\tUploading large image..."
+                n = image_helpers.relative_url_from_name(image.name, 'f')
+                if self._config.image_size_large:
+                    self._s3_manager.add_file_from_file(n, buffer, content_type="image/jpeg")
+                else:
+                    self._s3_manager.add_file_from_filename(n, image.source)
 
             self.after_process_image(image)
 
@@ -214,20 +215,25 @@ class AutoBloggerApp(object):
             self.before_process_video(video)
             print "\tProcessing %s..." % video.name
 
-            if video.deleted:
-                print "\t\tDeleting video..."
-                self._s3_manager.delete_key(video_helpers.relative_url_from_name(video.name))
-            else:
-                print "\t\tUploading %s..." % video.name
-                self._s3_manager.add_file_from_filename(
-                    video_helpers.relative_url_from_name(video.name),
-                    video.source
-                )
+            if not self._config.mock:
+                if video.deleted:
+                    print "\t\tDeleting video..."
+                    self._s3_manager.delete_key(video_helpers.relative_url_from_name(video.name))
+                else:
+                    print "\t\tUploading %s..." % video.name
+                    self._s3_manager.add_file_from_filename(
+                        video_helpers.relative_url_from_name(video.name),
+                        video.source
+                    )
 
             self.after_process_video(video)
 
     def process_gpx(self, post_name, name, path, up_to_date):
         print "\t\tParsing GPX file..."
+
+        if self._config.mock:
+            return None
+
         gpx = parse_gpx.parse_gpx(path)
 
         if up_to_date:
@@ -282,6 +288,9 @@ class AutoBloggerApp(object):
         return gpx
 
     def create_blogpost(self, post_name, gpx, images, videos):
+        if self._config.mock:
+            return
+
         template = self._env.get_template("autoblog.html")
 
         tracks = parse_gpx.Track.parse_tracks_from_gpx(gpx)
