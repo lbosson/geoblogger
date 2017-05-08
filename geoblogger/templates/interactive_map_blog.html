@@ -1,3 +1,8 @@
+{% if blog_link %}
+<br />
+<a href="{{ blog_link }}">{{ blog_link }}</a>
+{% endif %}
+
 {% if distance or max_altitude or min_altitude or ascent or descent %}
   <h3>Stats</h3>
   <ul>
@@ -25,8 +30,4 @@
   </section>
   <div class="clear"></div>
   <br/>
-{% endif %}
-
-{% if blog_link %}
-<a href="{{ blog_link }}">{{ blog_link }}</a>
 {% endif %}
